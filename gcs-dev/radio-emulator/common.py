@@ -1,3 +1,4 @@
+import collections
 import typing
 import argparse
 import dataclasses
@@ -20,29 +21,26 @@ SYNCWORD_BYTES = SYNCWORD_STRUCT.pack(SYNCWORD_VALUE)
 COMMON_PART_STRUCT = struct.Struct("<HLHL3h3h")
 
 
-def field_(fmt: str, **kwargs: typing.Any):
-    return dataclasses.field(metadata={"fmt": fmt}, **kwargs)
+FieldDefault = collections.namedtuple("FieldDefault", ["mask", "offset", "range"])
+class FieldDefault(collections.namedtuple)
 
-STRUCT_MASKS = {
-    "H": 0xFFFF,
+STRUCT_DEFAULTS = {
+    "H": {"mask": 0xFFFF, "offset": 0, "range": 
     "L": 0xFFFF_FFFF,
     "h": 0xFFFF,
 }
 
+def field(
+        fmt: str, mask : int | None = None, range: int | None = None, offset: int | None = None,
+        **kwargs: typing.Any
+):
+    return dataclasses.field(metadata={
+        "fmt": fmt,
+        "mask": mask or 
+    }, **kwargs)
+
 @dataclasses.dataclass
-class CommonPart:
-    team_id: int = field_("H", default=0)
-    """ 2-3, Идентификатор команды """
-    time: int = field_("L", default=0)
-    """ 4-7, Время """
-    temperature: int = field_("H", default=0)
-    """ 8-9, Температура """
-    pressure: int = field_("L", default=0)
-    """ 10-13, Давление """
-    acceleration: typing.Tuple[int, int, int] = field_("3H", default=(0,0,0))
-    """ 14-19 (2+2+2), Ускорение """
-    omega: typing.Tuple[int, int, int] = field_("3H", default=(0,0,0))
-    """ 14-19 (2+2+2), Угловые скорости """
+class Serializable:
 
     @classmethod
     def struct(cls):
@@ -84,3 +82,19 @@ class CommonPart:
 
 def checksum(data: bytes) -> int:
     return functools.reduce(lambda x, y: x ^ y, data)
+
+
+@dataclasses.dataclass
+class CommonPart(Serializable):
+    team_id: int = field("H", default=0)
+    """ 2-3, Идентификатор команды """
+    time: int = field("L", default=0)
+    """ 4-7, Время """
+    temperature: int = field("H", default=0)
+    """ 8-9, Температура """
+    pressure: int = field("L", default=0)
+    """ 10-13, Давление """
+    acceleration: typing.Tuple[int, int, int] = field("3H", default=(0,0,0))
+    """ 14-19 (2+2+2), Ускорение """
+    omega: typing.Tuple[int, int, int] = field("3H", default=(0,0,0))
+    """ 14-19 (2+2+2), Угловые скорости """
